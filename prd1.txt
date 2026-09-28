@@ -1,0 +1,1756 @@
+I’ll build this into a development-ready PRD covering the data methodology, map-first frontend, backend, database, and implementation roadmap. I’ll first verify the proposed data sources and their access constraints so the plan distinguishes what can be built now from what depends on permissions or manual research.Two findings affect the design: CEEW’s 2021 vulnerability index uses 2011 district boundaries, while its 2025 heat-risk study is a separate dataset; neither should be presented as a live, site-level risk measurement. I’m also separating evidence of AI activity from facility size and “AI-ready” marketing, so the classifications remain defensible.The build plan will start with a small end-to-end slice: a reviewed facility, its supporting sources, a water-stress overlay, and a usable map. I also verified that the CEEW report carries a noncommercial licence, so the PRD will include dataset-specific publishing rules rather than assume every layer can share one open-data licence.The frontend direction is a light, editorial atlas: warm paper backgrounds, strong typography, a large interactive map, and source-backed facility profiles. The dashboard will show uncertainty explicitly, including unknown capacity, approximate locations, and the denominator behind every risk percentage.**Project PRD**
+AI Infrastructure Observatory: Mapping India’s Data Centre Growth Against Climate and Water Risk
+
+**Document version:** 1.0  
+**Prepared:** September 15, 2026  
+**Product type:** Public-interest geospatial research platform  
+**Primary SDGs:** SDG 9 and SDG 13  
+**Recommended architecture:** Next.js frontend, FastAPI backend, PostgreSQL/PostGIS database, and Python data pipelines.
+
+**Build this as a map-first, evidence-led observatory, not just a dashboard with markers.** Its strongest feature should be the ability to move from a national overview to an individual facility, understand its environmental context, and inspect the evidence behind every important claim.
+
+The specification below covers the product, frontend, backend, database, research methodology, implementation sequence, testing, deployment, and project deliverables.
+
+---
+
+**1. Product Definition**
+
+**Product Vision**
+Create a publicly accessible platform that helps people understand:
+
+1. Where data centres are operating or being developed in India.
+2. Which facilities have documented AI relevance.
+3. How these facilities overlap with water stress and district-level climate vulnerability.
+4. What is known, uncertain, outdated, or undisclosed.
+5. Which public sources support each conclusion.
+
+**Suggested Identity**
+
+| Element | Recommendation |
+|---|---|
+| Formal project name | AI Infrastructure Observatory |
+| Public-facing name | Compute & Climate India |
+| Tagline | Mapping the physical footprint of digital growth |
+| Main navigation | Explore, Dashboard, Data, Methodology, About |
+| Primary action | Explore the Map |
+| Secondary action | Download the Data |
+| Product personality | Clear, analytical, independent, accessible |
+
+**Problem Statement**
+The project should address fragmented evidence rather than claim to have discovered an entirely untracked industry.
+
+Compute Atlas currently describes its coverage as a source-cited United States inventory. That supports using it as a relevant precedent, but does not establish that no other India-focused or global inventories exist. Position your contribution as **an India-focused, evidence-linked integration of facility records, AI classification, and environmental context**. ([compute-atlas.com](https://www.compute-atlas.com/data?utm_source=openai))
+
+**Core Product Promise**
+
+> For every mapped facility, users can inspect its documented identity, location confidence, AI relevance, lifecycle status, environmental context, and supporting sources.
+
+**SDG Alignment**
+
+| SDG | Relevant alignment | Project contribution |
+|---|---|---|
+| SDG 9 | Sustainable and resilient infrastructure, particularly targets 9.1 and 9.4 | Provide transparent evidence for infrastructure planning and public discussion |
+| SDG 13 | Climate resilience and climate awareness, particularly targets 13.1 and 13.3 | Make climate-related context understandable and usable |
+
+These are contributions toward the goals, not measurements of official SDG indicators or proof that the application itself reduces emissions or water consumption. ([sdgs.un.org](https://sdgs.un.org/goals/goal9))
+
+**Non-Negotiable Principles**
+
+- Unknown values remain unknown, not zero.
+- A facility’s size does not prove that it is AI-specific.
+- Announced capacity is not operational capacity.
+- Environmental overlap is not proof of environmental harm.
+- Publicly accessible data is not automatically unrestricted for redistribution.
+- A map marker must not imply greater location precision than the evidence supports.
+- Published releases must be reproducible.
+
+---
+
+**2. Users And Scope**
+
+**Target Users**
+
+| User | Main question | Essential functionality |
+|---|---|---|
+| Researcher | How does infrastructure concentration relate to environmental conditions? | Filters, exports, methodology, reproducible releases |
+| Journalist | What is being built here, and what evidence supports it? | Facility profiles, sources, status history |
+| Policy analyst | Which infrastructure clusters deserve closer examination? | Hub comparisons, risk overlays, coverage indicators |
+| Student | How can I study sustainable digital infrastructure? | Explanations, accessible charts, downloadable data |
+| Interested resident | What facilities are near my region? | Map search, plain-language summaries |
+| Data reviewer | Is this record accurate enough to publish? | Review queue, source inspection, revision history |
+
+**Pilot Geography**
+Use these five study regions:
+
+1. Mumbai-Pune.
+2. Chennai.
+3. Hyderabad.
+4. National Capital Region.
+5. Bengaluru.
+
+Each hub needs a **versioned geographic definition**. Do not use an undocumented radius around a city or assume that a city name, district, and metropolitan region describe the same area.
+
+**Record Definition**
+For the first release:
+
+> A facility record represents a distinct physical data-centre site or campus. Buildings, construction phases, and tenants are subordinate records rather than additional headline sites.
+
+This prevents repeated announcements and campus expansions from inflating facility counts.
+
+**Pilot Size**
+Use these as planning targets, not claims about available data:
+
+| Milestone | Target |
+|---|---|
+| Initial end-to-end prototype | 10 reviewed facility records |
+| Internal demonstration | Approximately 30-50 reviewed records |
+| Public pilot | Approximately 75-150 reviewed records, subject to evidence availability |
+
+Never add weak records simply to reach a numerical target.
+
+**Release Scope**
+
+| Capability | Initial Release | Later Release |
+|---|---|---|
+| Interactive facility map | Required | Extend coverage |
+| Search and filters | Required | Advanced spatial queries |
+| Facility profiles and citations | Required | Richer document inspection |
+| Four AI classifications | Required | Assisted evidence extraction |
+| Aqueduct baseline water-stress layer | Required | Monthly and future scenarios |
+| CEEW vulnerability layer | Required for full proposed scope, subject to access and licensing clearance | Additional independently labelled climate layers |
+| Dashboard and data-quality indicators | Required | Advanced comparisons |
+| Reviewed CSV/GeoJSON downloads | Required, subject to dataset rights | Custom export jobs |
+| Reviewer/admin interface | Required | Multi-organisation workflows |
+| Public correction submissions | Required | Contributor accounts |
+| Historical timeline | Limited to sourced events | Full release-to-release exploration |
+| Automated AI classification | Not required | Optional reviewer assistance |
+| Site-level water-consumption estimates | Out of scope without suitable evidence | Separate research module |
+| Real-time operational monitoring | Out of scope | Requires an entirely different data source |
+
+A water-only alpha is acceptable while CEEW access is being resolved, but it must be labelled as a **reduced-scope alpha**, not the completed project.
+
+---
+
+**3. Frontend Direction**
+
+**Visual Concept**
+Use an **editorial environmental atlas**: warm paper backgrounds, precise cartography, strong typography, and restrained colour.
+
+Avoid a generic admin template, excessive glass effects, glowing markers, or a landing page dominated by decorative AI imagery.
+
+The map and evidence should provide the visual interest.
+
+**Design System**
+
+| Element | Specification |
+|---|---|
+| Main background | Warm off-white |
+| Content surfaces | Near-white |
+| Primary text | Deep forest-black |
+| Primary action | Dark forest green |
+| Interactive accent | Cobalt blue |
+| Environmental overlays | Clearly labelled sequential colour scales |
+| Unknown data | Neutral grey or hatching |
+| Heading font | Fraunces |
+| Body font | Manrope |
+| Numeric labels | IBM Plex Mono |
+| Main spacing system | Multiples of 4 or 8 pixels |
+| Card corners | Approximately 12-16 pixels |
+| Shadows | Subtle, mainly for floating map controls |
+
+Self-host the selected font files where practical and retain their licence information.
+
+**Starter Tokens**
+
+```css
+:root {
+  --background: #f6f4ec;
+  --surface: #fffefa;
+  --surface-muted: #ecefe7;
+
+  --text-primary: #182a23;
+  --text-secondary: #526158;
+  --border: #d7ddd3;
+
+  --brand: #214d3b;
+  --brand-hover: #163b2c;
+  --interactive: #2457d6;
+
+  --water-low: #fff2c6;
+  --water-medium: #efbd66;
+  --water-high: #d67a3b;
+  --water-extreme: #a8392d;
+  --data-unknown: #909b96;
+
+  --font-heading: "Fraunces", Georgia, serif;
+  --font-body: "Manrope", sans-serif;
+  --font-data: "IBM Plex Mono", monospace;
+
+  --radius-card: 14px;
+  --radius-control: 8px;
+
+  --shadow-panel: 0 10px 32px rgb(24 42 35 / 10%);
+}
+
+.observatory-background {
+  background:
+    radial-gradient(
+      ellipse at 85% 10%,
+      rgb(181 203 177 / 22%),
+      transparent 45%
+    ),
+    linear-gradient(180deg, #f9f7ef, var(--background));
+}
+
+.hero-title {
+  font-family: var(--font-heading);
+  font-size: clamp(3rem, 7vw, 7rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+```
+
+These are initial design values. Validate the final foreground/background combinations rather than assuming every token combination is accessible.
+
+**Landing Page**
+The landing page should communicate the project within a few seconds.
+
+```text
++------------------------------------------------------------------+
+| Compute & Climate India       Explore  Dashboard  Data  Methodology|
++------------------------------------------------------------------+
+|                                                                  |
+| PUBLIC INFRASTRUCTURE / INDIA                                     |
+|                                                                  |
+| The cloud has                   [Large editorial map of India]    |
+| a physical footprint.           [Tracked hub locations]           |
+|                                 [Subtle environmental texture]    |
+| Explore data centres, AI                                         |
+| infrastructure, and the                                         |
+| environmental conditions                                         |
+| around them.                                                     |
+|                                                                  |
+| [Explore the Map]  [View the Methodology]                         |
+|                                                                  |
++------------------------------------------------------------------+
+| Tracked sites | AI evidence coverage | Location coverage | Release|
++------------------------------------------------------------------+
+| Explore the five study hubs                                      |
++------------------------------------------------------------------+
+| What the public record shows                                     |
+| Three source-backed findings from the current dataset             |
++------------------------------------------------------------------+
+| How the observatory works: Discover / Review / Map / Publish       |
++------------------------------------------------------------------+
+| Data sources, limitations, correction policy, attribution         |
++------------------------------------------------------------------+
+```
+
+**Landing Page Requirements**
+
+- Use an actual map preview derived from the published release.
+- Do not display fabricated statistics while data is unavailable.
+- Show the release date beside headline metrics.
+- Make “Explore the Map” the most prominent action.
+- Explain the distinction between AI evidence and environmental context.
+- Include “What we do not know” as a visible section.
+- Use source names without implying that the organisations endorse the project.
+
+**Map Workspace**
+The exploration page should feel like a research instrument, not a decorative map.
+
+```text
++------------------------------------------------------------------+
+| Search facilities, operators, districts...          Share  Export |
++----------------+----------------------------------+---------------+
+| FILTERS        |                                  | FACILITY      |
+|                |                                  | PROFILE       |
+| Hub            |                                  |               |
+| AI category    |          INTERACTIVE MAP         | Identity      |
+| Status         |                                  | AI evidence   |
+| Water stress   |                                  | Water context |
+| Climate layer  |                                  | Climate       |
+| Data quality   |                                  | Sources       |
+|                |                                  |               |
++----------------+----------------------------------+---------------+
+| Active layer legend | Dataset version | Attribution | Scale       |
++------------------------------------------------------------------+
+```
+
+The right panel appears only after selection.
+
+**Responsive Behaviour**
+
+| Screen width | Behaviour |
+|---|---|
+| Large desktop | Filters, map, and selected facility panel |
+| Tablet/small desktop | Map with collapsible filter and detail overlays |
+| Mobile | Full-width map with bottom-sheet results and filters |
+| Unsupported WebGL | Accessible table and facility pages remain available |
+
+On mobile, provide a clear **Map / List** switch. Do not require users to interact with tiny markers to access a facility.
+
+**Marker Language**
+
+| AI classification | Suggested marker |
+|---|---|
+| Confirmed | Filled circle |
+| Likely | Outlined triangle |
+| Mixed-use | Divided diamond |
+| Unclassified | Neutral ring |
+
+Use shape and text alongside colour. Environmental severity colours should not also represent AI confidence.
+
+**Motion**
+
+- One restrained landing-page reveal.
+- Short transitions when filters change.
+- Smooth movement to a selected hub.
+- No continuous pulsing that implies live telemetry.
+- Respect reduced-motion preferences.
+- Do not animate chart values from zero in ways that obscure their actual meaning.
+
+**Accessibility**
+Target WCAG 2.2 AA. Require keyboard access, visible focus, descriptive labels, adequate contrast, and non-map alternatives. Aim for approximately 44-pixel touch controls as a design choice, while recognising that WCAG’s minimum target-size criterion has specific thresholds and exceptions. ([w3.org](https://www.w3.org/WAI/WCAG22/quickref/))
+
+---
+
+**4. Pages And Features**
+
+**Page Inventory**
+
+| Route | Purpose | Priority |
+|---|---|---|
+| `/` | Public introduction and map preview | P0 |
+| `/explore` | Main interactive map | P0 |
+| `/facilities` | Searchable, accessible table | P0 |
+| `/facilities/[slug]` | Permanent facility profile | P0 |
+| `/dashboard` | Aggregated findings and coverage | P0 |
+| `/data` | Releases, downloads, licences, dictionaries | P0 |
+| `/methodology` | Classification and spatial methods | P0 |
+| `/about` | Purpose, team, limitations, SDG alignment | P0 |
+| `/contribute` | Corrections and proposed additions | P0 |
+| `/admin` | Restricted review workspace | P0 |
+| `/hubs/[slug]` | Hub-specific overview | P1 |
+| `/compare` | Side-by-side facility or hub comparison | P1 |
+
+**Map Requirements**
+
+- Search by facility name, alias, operator, hub, and district.
+- Filter by AI category and lifecycle status.
+- Filter by available water-stress and vulnerability categories.
+- Filter by location precision and evidence completeness.
+- Cluster nearby facilities.
+- Fit the map to selected results.
+- Preserve filters in the URL.
+- Allow a shareable selected-facility state.
+- Display the active release and layer version.
+- Distinguish “not covered by this pilot” from “no records found”.
+- Provide a reset action.
+- Show a clear empty state when no results match.
+
+Enable one environmental choropleth at a time by default. Two overlapping colour-filled layers are difficult to interpret; a later comparison view can place them side by side.
+
+**Facility Profile**
+Each profile should contain:
+
+| Section | Required content |
+|---|---|
+| Identity | Name, aliases, operator, site/campus relationship |
+| Location | Region, coordinates when justified, location precision |
+| Lifecycle | Current documented status and dated evidence |
+| AI relevance | Category, rationale, evidence stage, review date |
+| Capacity | Disclosed values, units, scope, operational/planned distinction |
+| Water context | Indicator, category, dataset version, spatial match status |
+| Climate context | District, index version, boundary vintage |
+| Evidence | Sources linked to the claims they support |
+| History | Material changes and previous published versions |
+| Correction | A facility-specific correction action |
+
+**Dashboard**
+Include these panels:
+
+1. Tracked sites by hub.
+2. Sites by lifecycle status.
+3. AI classification distribution.
+4. Water-stress exposure among assessable sites.
+5. District vulnerability distribution.
+6. Disclosed capacity by status and capacity basis.
+7. Missing-data and location-confidence coverage.
+8. Recent reviewed changes.
+
+Every chart must show its denominator and exclusions.
+
+For example:
+
+> High or extremely high water-stress context: X of Y assessable sites. Z additional sites could not be assessed.
+
+Do not present this as a percentage of all Indian data centres.
+
+**Admin Workspace**
+Provide a split-screen review interface:
+
+- Candidate or facility draft on the left.
+- Source metadata and relevant excerpts on the right.
+- Field-level changes highlighted.
+- Review checklist visible.
+- Approve, reject, request changes, and flag duplicate actions.
+- Classification rationale required before approval.
+- Audit history visible to reviewers.
+
+---
+
+**5. Sources And Licensing**
+
+**Data Source Plan**
+
+| Source | Intended use | Important constraint |
+|---|---|---|
+| OpenStreetMap | Candidate discovery and some location evidence | Incomplete coverage; attribution and ODbL obligations |
+| Operator announcements | Identity, project status, site-specific AI claims | Marketing statements require careful interpretation |
+| Government or regulatory records | Location, permissions, project details | Availability and terminology vary |
+| Industry listings | Discovery and corroboration | Check reuse rights; avoid prohibited bulk scraping |
+| News reporting | Additional evidence and status changes | Preserve attribution; do not republish full articles |
+| WRI Aqueduct | Water-stress context | Screening dataset, not a facility water audit |
+| CEEW | District-level climate vulnerability | Licensing and district-vintage handling required |
+| Administrative boundaries | Geographic joins and display | Versioning, permitted reuse, and boundary presentation matter |
+
+OSM documents `telecom=data_center`, `building=data_center`, and related lifecycle tagging. These are discovery signals, not proof of AI use. Its database is distributed under the ODbL, with attribution requirements. ([wiki.openstreetmap.org](https://wiki.openstreetmap.org/wiki/Tag%3Atelecom%3Ddata_center?utm_source=openai))
+
+**Aqueduct**
+Use **Aqueduct 4.0 baseline annual water stress** for the initial release. WRI provides downloadable data and documents its products under CC BY 4.0. Store the original indicator fields and dataset version rather than inventing a new water-risk scale. ([wri.org](https://www.wri.org/data/aqueduct-global-maps-40-data?utm_source=openai))
+
+**CEEW**
+The 2021 climate-vulnerability assessment uses 640 districts based on the 2011 Census geography. CEEW’s 2025 heat-risk study covers a different district set and is a separate index, not an interchangeable update to the 2021 CVI. ([ceew.in](https://www.ceew.in/press-releases/assam-andhra-pradesh-maharashtra-are-most-vulnerable-to-extreme-climate-events?utm_source=openai))
+
+An important licensing detail needs resolution: the 2021 PDF’s written licence states **CC BY-NC 4.0**, while the copyright-page graphic also displays an **ND** symbol. Obtain clarification before adapting or redistributing extracted district data, particularly for a commercial deployment. ([ceew.in](https://www.ceew.in/sites/default/files/ceew-study-on-climate-change-vulnerability-index-and-district-level-risk-assessment.pdf))
+
+**Boundary Policy**
+Use versioned boundaries and document their source. For India’s political-map presentation, the DST guidelines identify Survey of India maps or digital boundaries as the standard. Review the intended basemap and boundary display before publication. ([geospatial.dst.gov.in](https://geospatial.dst.gov.in/Guidelines.aspx?utm_source=openai))
+
+**Licence Registry**
+Every imported dataset must have:
+
+```text
+dataset_name
+publisher
+version
+publication_date
+retrieved_at
+source_reference
+file_checksum
+licence_name
+licence_reference
+attribution_text
+display_permission
+download_permission
+commercial_use_status
+review_notes
+```
+
+**Release Rule**
+Do not apply a blanket “CC BY” label to the combined database.
+
+Keep source-specific rights visible. Separating datasets technically is useful, but does not by itself settle whether a combined or derived database satisfies all upstream licence conditions.
+
+---
+
+**6. AI Classification**
+
+**Important Correction**
+Your four requested labels should remain in the interface, but they should not be treated as a simple confidence ladder.
+
+**“Mixed-use” describes workload composition, not lower certainty.**
+
+Maintain three separate concepts:
+
+1. Public classification.
+2. Evidence strength.
+3. Deployment stage.
+
+**Classification Rubric**
+
+| Category | Required evidence | Insufficient evidence |
+|---|---|---|
+| Confirmed | Site-specific evidence explicitly documents AI infrastructure, AI workloads, or a named AI deployment/project | Operator-wide AI strategy alone |
+| Likely | Site-specific evidence strongly suggests AI relevance, but explicit confirmation is incomplete | Facility size alone |
+| Mixed-use | Site-specific evidence supports both AI and non-AI use at the same site | Assuming all colocation sites are mixed-use |
+| Unclassified | Evidence is insufficient, ambiguous, contradictory, or absent | Must not be interpreted as “not AI” |
+
+**Evidence Strength**
+
+```text
+strong
+moderate
+limited
+conflicting
+```
+
+**AI Deployment Stage**
+
+```text
+operational
+announced
+ai_ready_only
+unknown
+```
+
+A facility can therefore be:
+
+```text
+Classification: Confirmed
+AI stage: Announced
+Facility status: Under construction
+```
+
+That does **not** mean AI workloads are already running there.
+
+**Classification Rules**
+
+1. Evaluate evidence at the facility level.
+2. Do not inherit an operator’s AI positioning across all its sites.
+3. Preserve the distinction between “AI-ready” and documented deployment.
+4. Require a written rationale.
+5. Record the supporting claims and source references.
+6. Record the methodology version.
+7. Have another reviewer inspect Confirmed and Mixed-use decisions.
+8. Retain disagreements rather than silently overwriting them.
+9. Reassess when new evidence materially changes the record.
+
+**Reviewer Checklist**
+
+```text
+[ ] Is the facility specifically identified?
+[ ] Is the statement about this site, not only the operator?
+[ ] Does the evidence describe capability, plans, or actual operation?
+[ ] Are AI and general-purpose workloads distinguished?
+[ ] Is the source date recorded?
+[ ] Are conflicting sources documented?
+[ ] Does the rationale follow the current rubric?
+```
+
+**Optional AI Assistance**
+A language model can later help extract candidate claims from documents.
+
+Its output should remain a draft containing:
+
+- Proposed field.
+- Proposed value.
+- Exact supporting passage.
+- Source identifier.
+- Relevant date.
+- Extraction/model version.
+
+It must not publish classifications, invent missing information, or treat instructions found inside source documents as executable instructions.
+
+The project does not require training a custom AI model to deliver its main research contribution.
+
+---
+
+**7. Environmental Method**
+
+**Water-Stress Interpretation**
+The platform should say:
+
+> This facility’s mapped location overlaps an area assigned this water-stress category by the selected Aqueduct dataset.
+
+It should not say:
+
+> This facility causes water scarcity.
+
+WRI describes Aqueduct as a prioritisation and screening tool that should be supplemented by local investigation. Its baseline indicators are not live observations of conditions at an individual facility. ([wri.org](https://www.wri.org/research/aqueduct-40-updated-decision-relevant-global-water-risk-indicators?utm_source=openai))
+
+**Aqueduct Fields**
+Preserve the supplied forms of the indicator, including:
+
+```text
+bws_raw
+bws_score
+bws_cat
+bws_label
+```
+
+The data dictionary distinguishes raw values, scores, categories, and labels. Do not treat them as interchangeable. ([raw.githubusercontent.com](https://raw.githubusercontent.com/wri/Aqueduct40/master/data_dictionary_water-risk-atlas.md))
+
+**Spatial Processing**
+
+1. Validate and normalise facility geometry.
+2. Validate source polygon geometry.
+3. Confirm coordinate reference systems.
+4. Match the facility to native-resolution environmental polygons.
+5. Record all candidate matches.
+6. Apply documented ambiguity rules.
+7. Store the result against a specific facility version and dataset version.
+8. Generate simplified display geometry separately.
+
+Do not calculate analytical results using heavily simplified map polygons.
+
+**Match Statuses**
+
+```text
+matched
+no_data
+outside_coverage
+location_too_imprecise
+boundary_ambiguous
+multiple_matches
+invalid_geometry
+```
+
+**Boundary Handling**
+`ST_Covers` includes points on a polygon boundary, unlike strict interior-only logic. That is useful, but a point on a shared boundary can match multiple polygons. Detect those cases instead of taking the first result. ([postgis.net](https://postgis.net/docs/ST_Covers.html))
+
+Example candidate-match query:
+
+```sql
+SELECT
+    fv.id AS facility_version_id,
+    COUNT(ra.id) AS candidate_count,
+    ARRAY_AGG(ra.id)
+        FILTER (WHERE ra.id IS NOT NULL) AS candidate_area_ids
+FROM facility_versions AS fv
+LEFT JOIN risk_areas AS ra
+    ON ra.dataset_version_id = :dataset_version_id
+   AND ST_Covers(ra.geom, fv.geom)
+WHERE fv.id = ANY(:facility_version_ids)
+GROUP BY fv.id;
+```
+
+**Location Uncertainty**
+Store location precision explicitly:
+
+```text
+verified_site
+approximate_site
+locality_only
+city_only
+unknown
+```
+
+Also store a documented uncertainty radius where one is supportable.
+
+- Precise site locations can receive a point-based assessment.
+- Approximate locations may require checking all intersecting polygons.
+- City-only records should not receive a precise site-level risk label.
+- Do not silently assign the nearest basin when a point fails to match.
+
+**CEEW Joins**
+Match CEEW values to the administrative geography used by that index.
+
+If a current district is a subdivision of an older district:
+
+- Retain the original district identifier.
+- Document the relationship.
+- Label inherited context as parent-district context.
+- Do not present it as a newly measured score for the current district.
+
+**No Composite Score**
+For the initial release, keep water stress and climate vulnerability separate.
+
+Do not create an arbitrary formula such as:
+
+```text
+overall_risk = 0.6 * water_stress + 0.4 * climate_vulnerability
+```
+
+A combined score would require its own justified methodology, validation, sensitivity analysis, and explanation.
+
+**Exposure Metric**
+For a selected group of facilities:
+
+```text
+High-stress share =
+  assessable facilities in High or Extremely High categories
+  ---------------------------------------------------------
+  all facilities with valid, eligible water-stress assessments
+```
+
+Show the numerator, denominator, and excluded-record count.
+
+**Capacity Rules**
+
+- Separate operational, under-construction, and proposed capacity.
+- Separate IT load from total facility power or grid connection capacity.
+- Do not sum campus totals and their component phases.
+- Do not turn MW into annual electricity consumption without a separate, explicit model.
+- Do not infer water consumption from capacity alone.
+- Unknown capacity must not be represented as zero.
+
+---
+
+**8. Technical Architecture**
+
+**Recommended Stack**
+
+| Layer | Choice | Project role |
+|---|---|---|
+| Frontend | Next.js and TypeScript | Public pages, facility profiles, application shell |
+| Styling | Tailwind CSS plus custom tokens | Consistent implementation of the visual system |
+| Map | MapLibre GL JS | Interactive map and facility clusters |
+| Charts | Recharts or a similarly small chart library | Dashboard visualisations |
+| Backend | FastAPI | Validated API and reviewer workflows |
+| Database | PostgreSQL with PostGIS | Relational records and spatial analysis |
+| ORM | SQLAlchemy | Database access |
+| Migrations | Alembic | Schema changes |
+| Data processing | Python, GeoPandas, Shapely, pandas | Import, cleaning, and analysis |
+| Object storage | S3-compatible storage | Raw datasets and release exports |
+| Initial scheduling | Scheduled Python jobs | Periodic ingestion and release processing |
+| Deployment | Docker | Reproducible services |
+| Testing | Pytest and browser automation | API, spatial, and user-flow verification |
+
+Next.js provides the application routing foundation; MapLibre supports WebGL-based mapping and built-in GeoJSON clustering; FastAPI provides a documented API framework. These are appropriate building blocks for the proposed architecture, not a claim that the integration is already implemented. ([nextjs.org](https://nextjs.org/docs/app/getting-started/installation?utm_source=openai))
+
+**System Layout**
+
+```text
+Public Browser
+      |
+      v
+Next.js Frontend
+      |
+      v
+FastAPI API
+      |
+      +--------------------+
+      |                    |
+      v                    v
+PostgreSQL/PostGIS    Release/Object Storage
+      ^
+      |
+Import and Assessment Jobs
+      ^
+      |
+OSM / Documents / Aqueduct / CEEW / Boundaries
+
+Reviewer Browser
+      |
+      v
+Authenticated Admin Interface
+      |
+      v
+Drafts -> Review -> Approved Release
+```
+
+**Architecture Rules**
+
+- Start with a modular monolith, not microservices.
+- Keep spatial processing out of interactive request handlers.
+- Keep imports separate from public publication.
+- Use one consistent filter implementation for maps, tables, charts, and exports.
+- Do not add Redis, Kafka, Kubernetes, or a vector database without a demonstrated requirement.
+- Introduce a queue only when scheduled jobs and simple job tracking are insufficient.
+- Use a licensed tile provider or an appropriately hosted basemap.
+
+OSM’s public tile servers are not an unlimited hosting service. Their policy includes attribution, caching, and usage restrictions. The public Nominatim endpoint also has strict limits and prohibits client-side autocomplete use. Search your own facility database rather than using Nominatim for facility autocomplete. ([operations.osmfoundation.org](https://operations.osmfoundation.org/policies/tiles/?utm_source=openai))
+
+---
+
+**9. Database Specification**
+
+**Design Approach**
+Separate:
+
+1. Stable facility identity.
+2. Versioned facts.
+3. Evidence.
+4. Environmental datasets.
+5. Derived assessments.
+6. Publication and review history.
+
+A single large `facilities` table containing coordinates, every source, every risk value, and reviewer notes will become difficult to audit.
+
+**Core Tables**
+
+| Table | Important fields | Purpose |
+|---|---|---|
+| `facilities` | `id`, `slug`, `created_at` | Stable site identity |
+| `facility_versions` | `id`, `facility_id`, `revision`, identity fields, geometry, status | Versioned facility record |
+| `facility_phases` | `id`, `facility_id`, phase identifier | Prevent expansion double-counting |
+| `operators` | `id`, canonical name, aliases | Operator identity |
+| `source_documents` | `id`, reference, publisher, dates, checksum | Source metadata |
+| `claims` | `id`, `facility_version_id`, field, value, status | Individual factual assertions |
+| `claim_sources` | `claim_id`, `source_id`, locator, excerpt | Evidence links |
+| `capacity_observations` | facility/phase, value, unit, basis, status, claim | Capacity with explicit meaning |
+| `status_events` | facility, event, effective date, date precision, claim | Sourced lifecycle history |
+| `classification_reviews` | version, reviewer, decision, rationale, rubric | Classification audit |
+| `dataset_versions` | dataset, version, licence, checksum | Immutable upstream versions |
+| `risk_areas` | dataset version, native key, geometry | Environmental polygons |
+| `risk_values` | risk area, indicator, raw value, score, category | Native environmental values |
+| `admin_areas` | codes, name, level, vintage, geometry | Versioned administrative units |
+| `admin_crosswalks` | old area, new area, relationship, notes | Boundary-change documentation |
+| `facility_risk_assessments` | facility version, inputs, result, method | Reproducible spatial result |
+| `hub_definitions` | hub, version, geometry | Study-region definitions |
+| `releases` | version, publication time, manifest checksum | Public dataset release |
+| `release_members` | release, facility version, assessment references | Exact release contents |
+| `ingestion_runs` | input, status, timestamps, error counts | Import traceability |
+| `candidates` | upstream identity, raw metadata, review state | Unpublished discoveries |
+| `correction_submissions` | facility, proposed change, source, state | Public feedback |
+| `users` | identity-provider subject, role | Restricted users |
+| `audit_events` | actor, action, entity, time, change reference | Operational audit trail |
+
+Implement these incrementally. The first working slice needs facility identity, versions, sources, claims, one dataset, one assessment, and one release.
+
+**Facility Version Fields**
+
+```text
+id: UUID
+facility_id: UUID
+revision: integer
+
+name: text
+aliases: text[]
+operator_id: UUID
+address_text: text | null
+
+lifecycle_status: enum
+ai_classification: enum
+ai_stage: enum
+workload_scope: enum
+
+geom: geometry(Point, 4326) | null
+location_precision: enum
+location_accuracy_m: numeric | null
+
+classification_rationale: text
+methodology_version: text
+
+review_status: enum
+reviewed_by: UUID | null
+reviewed_at: timestamp | null
+
+effective_from: date | null
+recorded_at: timestamp
+```
+
+Keep `recorded_at` separate from the date on which a real-world event occurred.
+
+**Lifecycle Statuses**
+
+```text
+proposed
+permitted
+under_construction
+operational
+paused
+cancelled
+decommissioned
+unknown
+```
+
+**Capacity Observation Fields**
+
+```text
+facility_id
+phase_id
+value_mw
+capacity_basis
+capacity_status
+scope
+effective_date
+date_precision
+claim_id
+```
+
+Suggested values:
+
+```text
+capacity_basis:
+  it_load
+  facility_power
+  grid_connection
+  unknown
+
+scope:
+  site_total
+  phase
+```
+
+**Constraints**
+
+- Unique facility revision per facility.
+- Unique upstream candidate identity per source version.
+- Non-negative disclosed capacity.
+- Positive uncertainty radius when supplied.
+- Valid enums rather than uncontrolled strings.
+- Foreign keys for evidence and dataset references.
+- Valid coordinate ranges and SRID.
+- No publication of demo/test records.
+- No approved classification without a rationale.
+- No published material claim without supporting evidence or an explicit unknown state.
+
+Cross-table publication rules should be enforced by a transactional publication service, not only frontend validation.
+
+**Indexes**
+
+```sql
+CREATE UNIQUE INDEX facility_revision_unique
+ON facility_versions (facility_id, revision);
+
+CREATE INDEX facility_versions_geom_gix
+ON facility_versions USING GIST (geom);
+
+CREATE INDEX risk_areas_geom_gix
+ON risk_areas USING GIST (geom);
+
+CREATE INDEX admin_areas_geom_gix
+ON admin_areas USING GIST (geom);
+
+CREATE INDEX claims_facility_version_idx
+ON claims (facility_version_id);
+```
+
+**Immutable Releases**
+A release must pin:
+
+- Facility versions.
+- Classification methodology.
+- Environmental dataset versions.
+- Boundary and hub-definition versions.
+- Assessment results.
+- Exported source metadata.
+- Software commit or processing version.
+- File checksums.
+
+Changing a facility tomorrow must not silently change a dataset cited today.
+
+---
+
+**10. API Specification**
+
+**Public Endpoints**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/releases/latest` | Resolve the current release ID |
+| `GET` | `/api/v1/releases/{id}` | Release metadata |
+| `GET` | `/api/v1/facilities` | Filtered, paginated records |
+| `GET` | `/api/v1/facilities/{id}` | Detailed profile |
+| `GET` | `/api/v1/map/facilities.geojson` | Lightweight map features |
+| `GET` | `/api/v1/analytics/summary` | Main dashboard metrics |
+| `GET` | `/api/v1/analytics/hubs` | Hub-level statistics |
+| `GET` | `/api/v1/datasets` | Layer catalogue and rights |
+| `GET` | `/api/v1/releases/{id}/downloads` | Permitted release files |
+| `POST` | `/api/v1/corrections` | Submit a correction |
+| `GET` | `/health/live` | Process health |
+| `GET` | `/health/ready` | Dependency readiness |
+
+**Admin Endpoints**
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/admin/candidates` | Review queue |
+| `POST` | `/api/v1/admin/facilities` | Create draft |
+| `PATCH` | `/api/v1/admin/facility-versions/{id}` | Edit an unpublished draft |
+| `POST` | `/api/v1/admin/facility-versions/{id}/reviews` | Record a review |
+| `POST` | `/api/v1/admin/imports` | Start an authorised import |
+| `GET` | `/api/v/{id}` | Inspect job status |
+| `POST` | `/api/v1/admin/releases` | Publish an approved snapshot |
+
+**Filter Contract**
+
+```text
+release
+q
+hub
+operator_id
+ai_classification
+ai_stage
+lifecycle_status
+water_category
+climate_category
+location_precision
+bbox
+limit
+cursor
+```
+
+Example:
+
+```http
+GET /api/v1/facilities
+  ?release=pilot-v1
+  &hub=chennai
+  &ai_classification=confirmed
+  &lifecycle_status=operational
+  &limit=50
+```
+
+**Consistency Requirements**
+
+- Resolve “latest” once and use that release ID throughout the session.
+- Include release and methodology metadata in analytical responses.
+- Return unknown as `null` plus an explanatory status where necessary.
+- Use stable cursor pagination.
+- Validate bounding boxes and enum values.
+- Bound query size and execution time.
+- Never silently truncate a map response.
+- If too many features match, return an explicit “zoom or filter further” response, or use a tile-based endpoint.
+- Do not expose unpublished drafts through public endpoints.
+
+Define API bounding boxes as:
+
+```text
+west, south, east, north
+```
+
+Document this carefully because Overpass query bounding boxes use a different order.
+
+---
+
+**11. Data Pipeline**
+
+**Pipeline Flow**
+
+```text
+Discover
+   |
+   v
+Archive Permitted Inputs
+   |
+   v
+Parse and Normalise
+   |
+   v
+Create Candidates
+   |
+   v
+Resolve Duplicates
+   |
+   v
+Review Location and Claims
+   |
+   v
+Classify AI Relevance
+   |
+   v
+Calculate Environmental Context
+   |
+   v
+Quality Checks
+   |
+   v
+Approve and Publish Release
+```
+
+**Discovery**
+Start with OSM and manually collected primary sources.
+
+Example Overpass query for a **research bounding box around Mumbai**, not an official hub definition:
+
+```text
+[out:json][timeout:60][bbox:18.8,72.7,19.4,73.4];
+
+(
+  nwr["telecom"="data_center"];
+  nwr["building"="data_center"];
+  nwr["industrial"="data_centre"];
+  nwr["construction:telecom"="data_center"];
+  nwr["proposed:telecom"="data_center"];
+);
+
+out meta geom;
+```
+
+Overpass supports bounding-box queries and geometry output. Its `out center` option returns a bounding-box centre, which is not guaranteed to lie inside a polygon; do not automatically treat it as a verified site coordinate. ([wiki.openstreetmap.org](https://wiki.openstreetmap.org/wiki/OverpassQL))
+
+**Source Archiving**
+Store:
+
+- Source reference.
+- Retrieval time.
+- Publication time if known.
+- Content checksum.
+- Relevant page or section.
+- Permitted excerpt.
+- Parsing status.
+- Rights information.
+
+Store full documents only where permitted. A public citation does not require republishing a full article.
+
+**Deduplication**
+Use a combination of:
+
+- Operator aliases.
+- Facility/site codes.
+- Address similarity.
+- Geographic proximity.
+- Campus and phase relationships.
+- Shared source references.
+
+Proximity should create a review suggestion, not automatically merge records.
+
+**Normalisation**
+Standardise:
+
+```text
+operator names
+facility aliases
+lifecycle statuses
+dates and date precision
+capacity units
+capacity basis
+coordinate reference systems
+administrative identifiers
+source types
+```
+
+**Review**
+Each candidate should end in:
+
+```text
+accepted
+rejected
+duplicate
+needs_more_evidence
+out_of_scope
+```
+
+**Idempotency**
+Running the same import twice should not create duplicate candidates, claims, or assessments.
+
+Use stable upstream IDs and content/version checksums as idempotency keys.
+
+**Publishing**
+The publication job should:
+
+1. Validate all selected records.
+2. Verify evidence and rights requirements.
+3. Pin dataset versions.
+4. Compute aggregates.
+5. Create permitted exports.
+6. Generate a manifest and checksums.
+7. Publish the release atomically.
+8. Update the “latest release” pointer only after success.
+
+---
+
+**12. Build From Zero**
+
+**Starting Skills**
+The minimum learning path is:
+
+1. HTML, CSS, JavaScript, and basic React.
+2. TypeScript fundamentals.
+3. Python and HTTP APIs.
+4. SQL and relational modelling.
+5. Geographic coordinates, CRS, polygons, and spatial joins.
+6. Git, Docker, and automated testing.
+
+Do not delay the entire project until you know everything. Learn each concept while building a narrow working slice.
+
+**Local Prerequisites**
+
+- Git.
+- Node.js LTS.
+- pnpm.
+- Python and uv.
+- Docker with Compose.
+- A code editor.
+- A GIS viewer for manual validation.
+
+As of this document date, Node.js 24 is an LTS line. Pin a tested patch version for the project rather than relying on an unbounded runtime version. ([nodejs.org](https://nodejs.org/en/about/previous-releases))
+
+**Repository Structure**
+
+```text
+ai-infrastructure-observatory/
+  apps/
+    web/
+      src/
+        app/
+        components/
+          layout/
+          map/
+          facilities/
+          charts/
+          evidence/
+          admin/
+        lib/
+          api/
+          filters/
+          formatting/
+        styles/
+      public/
+      tests/
+
+  services/
+    api/
+      app/
+        main.py
+        core/
+        models/
+        schemas/
+        routes/
+        services/
+        ingestion/
+        assessment/
+        publishing/
+      migrations/
+      tests/
+      pyproject.toml
+      uv.lock
+
+  data/
+    manifests/
+    fixtures/
+
+  research/
+    notebooks/
+    evaluation/
+    reports/
+
+  docs/
+    prd.md
+    methodology.md
+    data-dictionary.md
+    licensing.md
+    architecture.md
+    deployment.md
+
+  infra/
+    compose.yml
+
+  .github/
+    workflows/
+
+  README.md
+```
+
+Do not commit secret files, large raw datasets, or restricted documents. Store those outside Git with manifests and checksums.
+
+**Step 1: Scaffold**
+
+The following are starting commands for a new directory, not a complete application implementation.
+
+```bash
+mkdir ai-infrastructure-observatory
+cd ai-infrastructure-observatory
+git init
+
+mkdir -p apps services docs research infra data/manifests data/fixtures
+
+pnpm create next-app@latest apps/web \
+  --ts \
+  --tailwind \
+  --eslint \
+  --app \
+  --src-dir \
+  --use-pnpm
+
+cd apps/web
+pnpm add maplibre-gl zod lucide-react recharts
+cd ../..
+
+uv init --no-package --python 3.12 --vcs none services/api
+
+cd services/api
+uv add "fastapi[standard]" \
+  sqlalchemy \
+  "psycopg[binary]" \
+  alembic \
+  geoalchemy2 \
+  pydantic-settings \
+  httpx
+
+uv add geopandas shapely pandas pyogrio
+uv add --dev pytest pytest-cov ruff
+
+uv run alembic init migrations
+```
+
+The scaffolding approach follows the Next.js and uv project tooling. After the initial setup, commit dependency lockfiles and use locked installations in CI; do not rerun `@latest` as a normal build step. ([nextjs.org](https://nextjs.org/docs/app/getting-started/installation))
+
+**Step 2: Start PostGIS**
+
+Proposed local configuration in `infra/compose.yml`:
+
+```yaml
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: observatory
+      POSTGRES_USER: observatory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - observatory_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U observatory -d observatory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  observatory_data:
+```
+
+This is a local-development example. The PostGIS image project documents this tag family and its data-directory layout. Verify architecture compatibility, especially on ARM machines, and pin a tested image digest for deployment. ([github.com](https://github.com/postgis/docker-postgis))
+
+From the repository root:
+
+```bash
+export POSTGRES_PASSWORD='local-development-only'
+docker compose -f infra/compose.yml up -d db
+```
+
+Proposed backend configuration:
+
+```dotenv
+DATABASE_URL=postgresql+psycopg://observatory:local-development-only@localhost:5432/observatory
+ENVIRONMENT=development
+```
+
+Use private networking and separate least-privilege database roles in production. The Docker initialisation user is not the intended production application role.
+
+**Step 3: Build One Vertical Slice**
+
+Before developing the full dashboard:
+
+1. Add one reviewed facility.
+2. Add two supporting sources.
+3. Add one classification rationale.
+4. Add one water-stress assessment.
+5. Return it through the API.
+6. Render it on the map.
+7. Open its profile.
+8. Display its source links.
+9. Add an automated test for the flow.
+
+**Completion condition:** a user can move from the map marker to the underlying evidence.
+
+**Step 4: Build Evidence Management**
+
+Implement:
+
+- Draft facility creation.
+- Source creation.
+- Claim-source links.
+- Classification review.
+- Approval validation.
+- Immutable publication.
+
+Do this before importing a large dataset.
+
+**Step 5: Import The First Hub**
+
+Choose one pilot hub based on evidence availability.
+
+Complete:
+
+- Hub definition.
+- Candidate discovery.
+- Deduplication.
+- Location review.
+- Classification.
+- Water-stress matching.
+- Manual GIS spot checks.
+
+Do not start all five hubs simultaneously until this process works.
+
+**Step 6: Implement Map Features**
+
+Recommended order:
+
+1. Base map.
+2. Facility layer.
+3. Selection.
+4. Profile drawer.
+5. Search.
+6. Filters.
+7. Clustering.
+8. Water-stress layer.
+9. Legend and attribution.
+10. Mobile list/bottom-sheet interface.
+11. URL state.
+12. Error and fallback states.
+
+**Step 7: Add Climate Context**
+
+After rights and boundary mapping are resolved:
+
+- Import the CVI values.
+- Validate extraction against the report.
+- Match the correct district geography.
+- Flag unresolved crosswalks.
+- Add the layer catalogue entry.
+- Add profile and dashboard views.
+
+**Step 8: Add Dashboard And Exports**
+
+Build aggregates from the same filtered, versioned records used by the map.
+
+Do not independently calculate dashboard counts in frontend components.
+
+**Step 9: Expand Coverage**
+
+Apply the documented process to the remaining hubs.
+
+**Step 10: Test And Deploy**
+
+Only publish after the evidence, spatial, licence, accessibility, and security gates pass.
+
+---
+
+**13. Security And Operations**
+
+**Roles**
+
+| Role | Permissions |
+|---|---|
+| Public visitor | Read published data and submit corrections |
+| Contributor | Prepare drafts if contributor accounts are enabled |
+| Reviewer | Review and approve content |
+| Administrator | Manage users, imports, and releases |
+
+Public users should not need an account to explore or download permitted public releases.
+
+**Authentication**
+Use an established identity provider for admin authentication.
+
+Require:
+
+- Server-side authorisation on every restricted route.
+- MFA for privileged accounts.
+- Secure, HttpOnly cookies if using cookie sessions.
+- CSRF protection for cookie-authenticated mutations.
+- No long-lived privileged tokens in browser local storage.
+- Audit logs for approval and publication actions.
+
+Cookie-authenticated application design should follow established CSRF protections rather than relying only on hidden admin URLs or frontend checks. ([cheatsheetseries.owasp.org](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html))
+
+**Untrusted Inputs**
+Source URLs and uploaded documents require particular care.
+
+- Do not automatically fetch arbitrary URLs submitted by the public.
+- Use an isolated ingestion environment.
+- Block internal, loopback, link-local, and cloud metadata destinations.
+- Validate DNS resolution and redirects.
+- Set response-size and execution-time limits.
+- Sandbox document parsing.
+- Render excerpts as sanitised text.
+- Do not execute document scripts or macros.
+
+These controls address the SSRF risks inherent in server-side URL fetching. ([cheatsheetseries.owasp.org](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html))
+
+**Other Requirements**
+
+- Parameterised database queries.
+- Rate limits on search, exports, and corrections.
+- CSV formula-injection protection.
+- Restricted file types and upload sizes.
+- Secrets outside Git.
+- Dependency and container vulnerability scanning.
+- No public database port.
+- Private correction submitter contact details.
+- Data-retention rules for submitted personal information.
+
+**Responsible Publication**
+Exclude non-public operational details such as security layouts, internal network topology, access arrangements, and precise infrastructure dependencies that are unnecessary for this research.
+
+Provide a correction and removal-review process for sensitive or disputed records.
+
+---
+
+**14. Research Evaluation**
+
+**Research Questions**
+
+1. How reliably can public evidence support facility-level AI classification?
+2. What share of assessable facilities overlaps high water-stress areas?
+3. How does documented facility density vary with district-level water-stress context?
+4. How do results change when uncertain locations and Likely classifications are excluded?
+5. Which information gaps most limit interpretation?
+
+A statistically insignificant result is still a valid research outcome.
+
+**Classification Evaluation**
+
+1. Write the rubric before evaluating the full dataset.
+2. Select a stratified sample across hubs, statuses, and evidence categories.
+3. Have two reviewers label the sample independently.
+4. Record disagreements.
+5. Adjudicate a reference set.
+6. Freeze the reference set for evaluation.
+7. Report class-level results and uncertainty.
+
+Suggested measures:
+
+| Measure | Purpose |
+|---|---|
+| Agreement percentage | Simple reviewer consistency |
+| Cohen’s kappa | Agreement beyond chance |
+| Per-class precision and recall | Identify which labels are unreliable |
+| Macro F1 | Avoid majority-class dominance |
+| Confirmed-class precision | Detect overstatement of AI evidence |
+| Unclassified share | Make evidence gaps visible |
+
+Use planning targets such as high Confirmed precision, but do not claim a target was achieved without a sufficient test sample and reported uncertainty.
+
+**Spatial Analysis**
+Do not calculate a correlation from only five hub-level observations and present it as strong national evidence.
+
+Define a district-level study frame covering the selected hub regions.
+
+For district \(d\):
+
+\[
+D_d =
+\frac{\text{reviewed sites in district }d}
+{\text{district area in km}^2}
+\times 1000
+\]
+
+This gives documented sites per 1,000 square kilometres.
+
+Calculate area using an appropriate projected CRS or geodesic area, not square degrees. PostGIS distinguishes planar geometry area from geography-based area calculations. ([postgis.net](https://postgis.net/docs/ST_Area.html))
+
+A possible project-derived water-context statistic is:
+
+\[
+H_d =
+\frac{\text{validly assessed district area in high/extreme stress}}
+{\text{district area with valid water-stress data}}
+\]
+
+Clearly label this as an **observatory-derived area share**, not a native WRI district score.
+
+**Analysis Procedure**
+
+1. Freeze the facility and environmental releases.
+2. Predefine eligible districts.
+3. Record research coverage and search effort.
+4. Calculate site density.
+5. Calculate district water-context statistics.
+6. Plot density against water context.
+7. Report descriptive Spearman correlation.
+8. Check spatial dependence and sensitivity.
+9. Repeat excluding approximate locations.
+10. Repeat with narrower AI-evidence subsets.
+
+Do not blindly use the default correlation p-value. SciPy’s documentation cautions about the accuracy of its Spearman p-value for smaller samples; spatial dependence introduces an additional reason to avoid treating districts as automatically independent. If formal inference is attempted, document a defensible spatial resampling or modelling approach. ([docs.scipy.org](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.spearmanr.html))
+
+**Mandatory Limitations**
+
+- The inventory is not a census.
+- Research coverage can vary between hubs.
+- Unclassified does not mean non-AI.
+- Unknown capacity is missing data.
+- District vulnerability is not a site-specific engineering assessment.
+- A basin overlapping the site may not be the facility’s actual water-supply catchment.
+- Data-source dates do not all match.
+- Correlation does not establish causation.
+- Adding previously unknown older sites is a coverage change, not necessarily infrastructure growth.
+
+---
+
+**15. Quality Requirements**
+
+All numbers below are **acceptance targets**, not measured performance claims.
+
+| Area | Target |
+|---|---|
+| Public evidence | Every material published claim has evidence or an explicit unknown state |
+| AI review | Every Confirmed/Mixed-use record receives a second review |
+| Release integrity | Every release has a reproducible manifest |
+| Spatial integrity | Every attempted assessment records a result or explicit failure reason |
+| API performance | Common filtered reads below 500 ms p95 under the defined staging test |
+| Frontend | Target LCP at or below 2.5 seconds at the 75th percentile |
+| Interaction | Filters provide immediate feedback and do not freeze the map |
+| Mobile | Core flows work at 360 CSS pixels |
+| Accessibility | WCAG 2.2 AA target |
+| Recovery | Backups are tested through actual restoration |
+
+Measure performance against a documented device/network profile and dataset size.
+
+**Required Tests**
+
+| Test | Expected result |
+|---|---|
+| Import the same source twice | No duplicate records |
+| Two announcements describe one expansion | One site with separate phase/history evidence |
+| A facility has no capacity disclosure | Display “Unknown”, not zero |
+| Campus total and phase capacities coexist | Aggregate does not double-count |
+| A point lies on two polygon boundaries | Assessment is flagged as ambiguous |
+| A coordinate is only city-level | No false precise site assessment |
+| A risk source contains a missing-data code | Preserve a typed missing state |
+| A draft is requested publicly | Not returned |
+| Filters are changed | Map, table, chart, and export populations agree |
+| A new release is published | Previous release remains unchanged |
+| A source excerpt contains HTML/script | Rendered safely |
+| A correction includes an internal-network URL | Not fetched |
+| WebGL fails | Table and profiles remain usable |
+| A restricted dataset is selected for export | Export is blocked or appropriately separated |
+| A backup is restored | Application can read the restored release |
+
+**Usability Study**
+Test with approximately 5-8 participants across your intended users.
+
+Give them tasks such as:
+
+- Find a facility in Chennai.
+- Explain why it is classified as Confirmed.
+- Find the source for its lifecycle status.
+- Determine whether a water-stress label proves water consumption.
+- Download the data for a selected release.
+- Submit a correction.
+
+Record completion rate, time, errors, and misunderstood terminology.
+
+---
+
+**16. Deployment Plan**
+
+**Environments**
+
+```text
+Local development
+        |
+        v
+Staging with test data and draft releases
+        |
+        v
+Production with reviewed releases
+```
+
+**Initial Production Layout**
+
+- One frontend deployment.
+- One API service.
+- One scheduled processing service.
+- One PostgreSQL/PostGIS database.
+- Object storage for permitted raw inputs and public exports.
+- A licensed basemap service.
+- Central logs and error monitoring.
+
+A single Docker host can be suitable for an early pilot if its operational limitations are accepted. Separate managed database hosting can be introduced when maintenance and recovery requirements justify it.
+
+FastAPI documents container-based deployment and worker-process options; choose worker counts based on measured memory and concurrency rather than copying an arbitrary production setting. ([fastapi.tiangolo.com](https://fastapi.tiangolo.com/deployment/server-workers/))
+
+**CI/CD**
+
+1. Install locked dependencies.
+2. Run formatting and lint checks.
+3. Run backend and frontend tests.
+4. Run migration checks against a clean database.
+5. Run spatial fixtures against PostGIS.
+6. Build containers/frontend.
+7. Scan dependencies.
+8. Deploy to staging.
+9. Run smoke tests.
+10. Approve production deployment.
+11. Run migrations through a controlled step.
+12. Verify health, map, and release downloads.
+
+**Monitoring**
+
+Track:
+
+- API latency and errors.
+- Import failures.
+- Stale review dates.
+- Broken source references.
+- Missing spatial matches.
+- Pending corrections.
+- Failed publications.
+- Storage consumption.
+- Backup age.
+- Tile and download usage.
+
+**Budget Planning**
+For a small public pilot, use an initial allowance of roughly **USD 30-100 per month**, excluding labour, paid datasets, and unusually heavy map or download traffic.
+
+This is a planning estimate, not a vendor quote or guaranteed minimum. Hosting cost depends on compute, storage, backups, traffic, and managed-service choices; check selected providers before committing. ([digitalocean.com](https://www.digitalocean.com/pricing/droplets))
+
+Set billing alerts before launch.
+
+---
+
+**17. Implementation Roadmap**
+
+Assumption: approximately three or four contributors with some existing web-development experience. Data-access delays can extend the schedule.
+
+| Week | Main work | Exit condition |
+|---|---|---|
+| 1 | Source audit, licence questions, record definition, initial wireframes | Data feasibility and scope documented |
+| 2 | Repository, database, API shell, design tokens | Local stack starts reliably |
+| 3 | Facility versions, sources, claims | Evidence-backed record can be stored and retrieved |
+| 4 | First map and profile | End-to-end flow works for reviewed fixtures |
+| 5 | First-hub ingestion and deduplication | First real reviewed subset |
+| 6 | Aqueduct import and spatial QA | Reproducible water assessments |
+| 7 | AI review workflow and source interface | Approval gates operate correctly |
+| 8 | CEEW ingestion and boundary mapping | Cleared climate context available, or blocker explicitly recorded |
+| 9 | Dashboard, filters, exports | Consistent results across views |
+| 10 | Remaining hubs and mobile refinement | Pilot coverage and main mobile flows complete |
+| 11 | Research evaluation, accessibility, security, performance | Findings and outstanding issues documented |
+| 12 | Release preparation, deployment, report, demonstration | Reviewed pilot released with manifest |
+
+**Team Responsibilities**
+
+| Role | Responsibility |
+|---|---|
+| Frontend owner | Design system, map UX, responsive pages |
+| Backend owner | Schema, API, authentication, publication |
+| Data/GIS owner | Discovery, ingestion, spatial processing |
+| Research/QA owner | Rubric, reviews, evaluation, limitations |
+
+If working alone, retain these responsibilities as workstreams and reduce the first release to one hub before expanding.
+
+**Critical Risks**
+
+| Risk | Mitigation |
+|---|---|
+| Sparse OSM coverage | Use OSM for discovery, supplement with primary sources |
+| Weak AI evidence | Keep records Unclassified rather than infer |
+| Unclear CEEW reuse rights | Resolve early; label reduced-scope alpha honestly |
+| Boundary mismatch | Versioned geography and documented crosswalks |
+| Inflated capacity totals | Separate site, phase, basis, and status |
+| Slow maps | Lightweight features, simplified display layers, later vector tiles |
+| Overengineering | One API, one spatial database, scheduled jobs first |
+| Misleading research conclusions | Explicit denominators, sensitivity tests, coverage limits |
+
+---
+
+**18. Final Deliverables**
+
+The complete project submission should contain:
+
+1. Responsive public website.
+2. Interactive map and accessible facility table.
+3. Source-linked facility profiles.
+4. Dashboard with denominators and missing-data indicators.
+5. Restricted reviewer/admin interface.
+6. Backend API documentation.
+7. Database migrations and schema diagram.
+8. Reproducible ingestion and assessment jobs.
+9. Reviewed dataset release and manifest.
+10. Permitted CSV and GeoJSON exports.
+11. Data dictionary.
+12. Classification methodology and version history.
+13. Spatial-method documentation.
+14. Licence and attribution register.
+15. Classification evaluation results.
+16. Spatial-analysis notebook or scripts.
+17. Automated test suite.
+18. Deployment and backup-restoration guide.
+19. Research report and limitations.
+20. Demonstration recording.
+
+**Definition Of Done**
+The pilot is ready only when a user can:
+
+> Open the map, select a facility, understand its AI classification and environmental context, inspect the supporting evidence, and reproduce the corresponding published record.
+
+**First Five Tasks**
+Start with these, in this order:
+
+1. Define the facility/site counting rule and the five hub boundaries.
+2. Open the source and licensing register, including the CEEW clarification.
+3. Research ten real facilities and document their claims in a structured template.
+4. Build one facility-to-source-to-map vertical slice.
+5. Validate one water-stress join manually before automating the remaining records.
+
+**The main engineering priority is traceability.** Build the attractive interface around a reliable evidence model. A visually polished map with unsupported classifications will be weaker than a smaller, carefully reviewed observatory that makes its sources and uncertainty clear.
+
+This document specifies the project and its implementation sequence. The scaffolding examples are starting points; no complete application or test suite has been executed as part of this response.

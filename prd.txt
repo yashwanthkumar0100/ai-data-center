@@ -1,0 +1,198 @@
+1. Executive Summary
+India's AI and cloud sector is driving explosive data centre growth, but no public, source-cited record shows where facilities are, which are AI-specific, or how they overlap with water-stressed and climate-vulnerable regions. The AI Infrastructure Observatory is a web platform that consolidates data centre locations (OpenStreetMap + industry listings), classifies each facility by AI relevance using a confidence-tiered methodology, and overlays this against WRI Aqueduct water-stress data and CEEW district-level climate vulnerability indices — all in an interactive, source-traceable map and dashboard.
+Prototype scope: Mumbai-Pune, Chennai, Hyderabad, NCR, Bengaluru.
+2. Problem Statement
+•	Data centre location data is scattered across permit filings, operator PR, and news — no unified dataset.
+•	No classification distinguishes AI-specific facilities (high power/water density) from general-purpose or enterprise DCs.
+•	No existing tool overlays India's compute buildout with environmental risk (water stress, climate vulnerability).
+•	Compute Atlas, the closest global analogue, covers only the United States.
+•	Policymakers, researchers, journalists, and civil society lack an evidence base for sustainable digital infrastructure policy in India.
+3. Goals & Success Metrics
+Goal	Metric	Prototype Target
+Consolidate DC location data	Facilities catalogued across 5 hubs	≥150 facilities
+Classify AI relevance	Classification accuracy vs. manual audit	≥80% agreement (Confirmed/Likely)
+Overlay environmental risk	Districts with joined risk data	100% of covered districts
+Demonstrate spatial insight	Correlation: AI-density vs water stress	Documented coefficient + narrative
+Source traceability	Data points with a public source	100%
+Usability	Non-technical reviewer can use the tool	Positive Stage I review feedback
+4. Non-Goals (Prototype Phase)
+•	Real-time/live data ingestion pipelines — batch/manual refresh is sufficient for v1.
+•	Full national coverage — only the 5 named hubs.
+•	Predictive modelling of future data centre growth — descriptive/diagnostic only, not forecasting.
+•	Mobile native apps — responsive web only.
+•	User accounts or authentication — public read-only tool for v1.
+5. Users & Use Cases
+User	Need	Example Use
+Policy researcher / analyst	Evidence for infrastructure-water policy briefs	Filter map to Confirmed AI DCs in high water-stress districts
+Journalist	Fact-checked, citable data for a story	Click a facility pin to see source links and classification confidence
+Academic reviewer (Stage I panel)	Assess technical rigor and SDG relevance	Explore dashboard, review methodology page
+Civil society / NGO	Advocacy material on sustainable tech growth	Export chart of AI-facility density vs. district vulnerability
+General public	Local awareness of AI's environmental footprint	Search their city or district on the map
+ 
+6. Functional Requirements
+6.1 Interactive Map
+•	Base map (OpenStreetMap tiles) centred on India, zoomable to the 5 prototype hub regions.
+•	Facility markers colour-coded by AI-relevance tier: Confirmed (dark), Likely (medium), Mixed-use (light), Unclassified (grey).
+•	Marker clustering at low zoom; individual pins at facility-level zoom.
+•	Toggleable overlay layers: water-stress choropleth (WRI Aqueduct) and climate vulnerability choropleth (CEEW).
+•	Click a marker to open a side panel: facility name, operator, location, classification tier and rationale, capacity (if known), source links, last-verified date.
+•	Click a district to see its water-stress score, climate vulnerability score, and count of facilities by tier.
+6.2 Dashboard
+•	Summary stat cards: total facilities, % Confirmed AI, facilities in high-water-stress districts, hub-wise breakdown.
+•	Bar chart: facility count by hub, stacked by classification tier.
+•	Scatter/correlation chart: AI-facility density per district vs. water-stress score.
+•	Sortable, filterable table of all facilities with name, hub, tier, water-stress level, and source.
+6.3 Classification Methodology (Confidence-Tiered)
+1.	Confirmed — operator explicitly labels the facility as AI/HPC/GPU-cluster in a public filing or press release.
+2.	Likely — strong indirect signals: a known hyperscaler AI announcement tied to the region plus facility naming or permit language referencing high-density compute, GPU racks, or liquid cooling.
+3.	Mixed-use — general-purpose cloud/colocation facility known to also host some AI workloads.
+4.	Unclassified — data centre identified but with insufficient public information to classify AI relevance.
+Each tier assignment stores a source URL, extraction date, and a short human-readable rationale — this is what "source-cited" means operationally.
+6.4 Data Provenance & Trust
+•	Every facility record and district-risk value carries at least one source URL and a retrieval date.
+•	A public Methodology page documents data sources, classification rules, known limitations, and update cadence.
+6.5 Search & Filter
+•	Search by city, district, facility name, or operator.
+•	Filter by hub, classification tier, water-stress level, and climate vulnerability level.
+7. Non-Functional Requirements
+•	Performance: map interactions under 300ms perceived latency; dashboard queries under 1s for the prototype dataset (~150–500 records).
+•	Accessibility: WCAG AA colour contrast; tier colour-coding is paired with icons/labels, not colour alone.
+•	Responsiveness: usable on laptop and tablet at minimum.
+•	Data integrity: classification logic and citations are auditable — raw source data is stored separately from derived tiers.
+•	Transparency: no data point is displayed without a source reference.
+ 
+8. System Architecture
+Frontend (React + Vite + TypeScript, Leaflet map, Recharts, Tailwind CSS) communicates over a REST/JSON API with the Backend (FastAPI, Pydantic models, SQLAlchemy ORM, classification service). The backend reads from PostgreSQL + PostGIS, which stores facilities, districts, water-stress data, climate vulnerability data, and source records. An offline ETL pipeline (standalone Python scripts, run manually or on a schedule — not part of the live app) handles OSM Overpass extraction, industry-listing ingestion, and the WRI Aqueduct / CEEW data joins.
+Why this stack
+•	React (Vite + TypeScript): fast development loop, strong ecosystem for maps and charts, easy to make visually polished.
+•	FastAPI: quick to build a clean REST API with automatic OpenAPI documentation, async-friendly, built-in validation via Pydantic.
+•	PostgreSQL + PostGIS: the project needs real geospatial queries (point-in-polygon lookups for which district a facility sits in) — PostGIS is the right tool for this, not plain CSVs.
+•	Leaflet + OpenStreetMap tiles: simplest reliable open-source mapping option for this scope.
+9. Data Model (Core Entities)
+Table	Key Fields
+Facility	id, name, operator, hub, latitude, longitude, district_id (FK), classification_tier, classification_rationale, capacity_mw, osm_id, data_origin, created_at, last_verified_at
+FacilitySource	id, facility_id (FK), source_url, source_type, retrieved_at, notes
+District	id, name, state, geometry (PostGIS polygon), water_stress_score, water_stress_category, climate_vulnerability_index, climate_vulnerability_category, data_source_wri, data_source_ceew
+10. API Design (FastAPI — Key Endpoints)
+•	GET /api/facilities — list and filter by hub, tier, district, water_stress
+•	GET /api/facilities/{id} — facility detail including sources
+•	GET /api/districts — list districts with risk scores
+•	GET /api/districts/{id} — district detail including facilities within it
+•	GET /api/districts/{id}/geojson — polygon geometry for map rendering
+•	GET /api/stats/summary — dashboard summary cards
+•	GET /api/stats/correlation — AI-density vs. water-stress data points
+•	GET /api/methodology — static methodology and sources content
+All list endpoints support ?tier=, ?hub=, ?water_stress_category=, and ?search= query parameters, and return GeoJSON-compatible shapes for the map layer where relevant.
+ 
+11. Frontend Design — Making It Attractive
+The goal is a serious data-journalism feel (think Reuters Graphics, Carbon Brief maps, Compute Atlas) — clean, data-forward, not a generic admin dashboard.
+Visual direction
+•	Dark base-map theme with high-contrast markers — reads well and feels like an infrastructure/tech product.
+•	Restrained colour system: teal/cyan gradient for AI-classification tiers, amber-to-red for water-stress severity, kept visually distinct so overlays don't clash.
+•	Typography: a clean geometric sans (Inter or IBM Plex Sans) for UI text, a monospace accent for stats and numbers.
+•	Layout: full-bleed map as the hero, collapsible left filter panel, right-side slide-in detail drawer on marker click (avoids modal interruptions).
+•	Landing/About view: one-line mission statement, three key stats, an 'Explore the Map' call to action.
+•	Micro-interactions: smooth marker-clustering animation, hover tooltips on choropleth districts, animated count-up on dashboard stat cards.
+•	Methodology page designed like a readable article rather than a dry appendix — this is often what convinces a review panel of rigor.
+Component structure (React)
+•	components/Map — MapView, FacilityMarker, DistrictLayer, LayerToggle
+•	components/Dashboard — StatCard, HubBreakdownChart, CorrelationChart, FacilityTable
+•	components/Detail — FacilityDetailDrawer, DistrictDetailDrawer
+•	components/Layout — Header, FilterPanel, Footer
+•	components/Methodology — MethodologyPage
+•	hooks — useFacilities, useDistricts, useStats
+•	api — typed fetch client matching the FastAPI schema
+12. Data Pipeline / ETL Plan
+5.	OSM extraction — Overpass API query for data-centre tags within hub bounding boxes, producing a raw CSV/GeoJSON.
+6.	Industry listings — manually compiled from public operator sites, industry trackers, and news, with a source documented per row.
+7.	Merge and deduplicate — match by name and proximity; flag conflicts for manual review.
+8.	Classification pass — apply the four-tier rubric per facility, recording rationale and source.
+9.	District join — spatial join (PostGIS ST_Contains) placing each facility point into its district polygon.
+10.	Risk data join — import WRI Aqueduct and CEEW values per district, using a manual name crosswalk table where names mismatch.
+11.	QA pass — spot-check a sample against source documents before loading into the production database.
+This pipeline runs as standalone Python scripts (/etl), with output loaded into PostgreSQL via a seed/import script — it does not need to be a live service for the prototype.
+13. Build Plan — Step by Step
+Phase 0 — Setup (Week 1)
+•	Set up the GitHub repo, branch strategy, and README.
+•	Provision PostgreSQL + PostGIS (Docker for local dev).
+•	Scaffold the FastAPI backend (uvicorn, SQLAlchemy, GeoAlchemy2, Pydantic).
+•	Scaffold the React frontend (Vite with TypeScript template).
+Phase 1 — Data Collection (Weeks 2–3)
+•	Run OSM Overpass queries for the 5 hubs.
+•	Manually compile industry-listing facilities with sources.
+•	Download WRI Aqueduct (India subset) and CEEW district vulnerability index data.
+•	Build the district-name crosswalk.
+Phase 2 — Database & Classification (Weeks 3–4)
+•	Design and migrate the schema (Alembic migrations recommended).
+•	Write and run the ETL/join scripts.
+•	Apply the classification rubric, storing rationale and sources.
+•	QA a sample of ~20 facilities against original sources.
+Phase 3 — Backend API (Weeks 4–5)
+•	Build the FastAPI endpoints listed in Section 10.
+•	Add filtering, pagination, and GeoJSON serialization.
+•	Review the auto-generated OpenAPI docs at /docs.
+Phase 4 — Frontend Core (Weeks 5–7)
+•	Map view with markers and clustering.
+•	District choropleth overlays with a toggle.
+•	Filter panel wired to the API.
+•	Facility and district detail drawers.
+Phase 5 — Dashboard & Polish (Weeks 7–8)
+•	Stat cards and charts (Recharts).
+•	Correlation chart (AI-density vs. water-stress).
+•	Methodology page content.
+•	Visual polish pass — dark theme, animations, responsive check.
+Phase 6 — Evaluation & Review Prep (Weeks 8–9)
+•	Run the classification accuracy check against a manual audit.
+•	Complete the spatial correlation analysis write-up.
+•	Prepare Stage I review materials — demo script, slide alignment with this PRD.
+ 
+14. Evaluation Plan
+•	Classification accuracy: randomly sample 15–20% of classified facilities, have a team member independently classify using only the rubric and sources, and compute the agreement rate with the system's tier.
+•	Spatial correlation: compute AI-facility density per district (Confirmed + Likely count relative to district area or population), correlate against the water-stress score using Spearman correlation, and report the coefficient with an interpretive narrative that explicitly notes correlation is not causation.
+15. Risks & Mitigations
+Risk	Mitigation
+Sparse or inconsistent public data on facility AI-specificity	Confidence-tiered classification instead of forcing a binary label; Unclassified is a legitimate category
+District name mismatches across OSM/WRI/CEEW datasets	Manual crosswalk table, QA'd early in the pipeline
+Overclaiming a causal narrative from correlation	Explicit methodology caveats; frame as spatial co-occurrence, not causation
+Scope creep beyond the 5 hubs	Non-goals section enforced; national scale treated as future work
+Source links going dead over time	Store retrieval date plus an archive.org fallback link where feasible
+16. Future Work (Post-Prototype)
+•	National coverage beyond the 5 hubs.
+•	Automated, scheduled OSM and listing refresh pipeline.
+•	Facility-level water and energy consumption estimates, not just presence/absence.
+•	A public API for researchers.
+•	Time-series tracking of data centre growth, not just a snapshot.
+17. Appendix — Key Data Sources
+•	OpenStreetMap (Overpass API) — facility locations and base tagging.
+•	Industry listings, news, and permit filings — AI-relevance signals and capacity data.
+•	WRI Aqueduct — water-stress indicators.
+•	CEEW (Council on Energy, Environment and Water) — district-level climate vulnerability index.
+•	Compute Atlas (reference/inspiration, US-only) — a methodology comparison point.
+This PRD is structured to double as the Stage I review reference document — each section maps to what a review panel typically asks for: problem framing, SDG alignment, technical architecture, feasibility and timeline, and evaluation methodology.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+that is not working make it work perfect all function and non function , when i search city in that map the search city point to map , and give the details , of all  make run perfect and correct    ---- in antigravity
